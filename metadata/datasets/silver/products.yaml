@@ -1,0 +1,26 @@
+dataset:
+  name: DW_SILVER.PRODUCTS
+  layer: silver
+  domain: master_data
+  owner:
+    team: "Product"
+    email: "products@example.com"
+  classification:
+    pii: false
+    confidential: false
+  description: "Product catalog"
+primary_key:
+  - PRODUCT_ID
+fields:
+  - name: PRODUCT_ID
+    data_type: integer
+    description: "Primary Key"
+    nullable: false
+  - name: PRODUCT_NAME
+    data_type: string
+  - name: UNIT_PRICE
+    data_type: double
+  - name: CATEGORY_ID
+    data_type: integer
+  - name: PROFIT_MARGIN
+    data_type: double

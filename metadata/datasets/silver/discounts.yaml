@@ -1,0 +1,20 @@
+dataset:
+  name: DW_SILVER.DISCOUNTS
+  layer: silver
+  domain: sales
+  owner:
+    team: "Sales"
+    email: "sales@example.com"
+  classification:
+    pii: false
+    confidential: true
+  description: "Discount reference data"
+primary_key:
+  - DISCOUNT_ID
+fields:
+  - name: DISCOUNT_ID
+    data_type: integer
+  - name: DISCOUNT_CODE
+    data_type: string
+  - name: DISCOUNT_PCT
+    data_type: double

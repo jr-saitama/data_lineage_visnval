@@ -1,0 +1,33 @@
+dataset:
+  name: DW_SILVER.ORDERS
+  layer: silver
+  domain: sales
+  owner:
+    team: "Sales"
+    email: "sales@example.com"
+  classification:
+    pii: false
+    confidential: false
+  description: "Order header information"
+primary_key:
+  - ORDER_ID
+fields:
+  - name: ORDER_ID
+    data_type: integer
+    description: "Primary Key"
+    nullable: false
+  - name: CUSTOMER_ID
+    data_type: integer
+    description: "FK to Customer"
+  - name: PRODUCT_ID
+    data_type: integer
+    description: "FK to Product"
+  - name: DISCOUNT_ID
+    data_type: integer
+    description: "FK to Discount"
+  - name: QUANTITY
+    data_type: integer
+  - name: ORDER_STATUS
+    data_type: string
+  - name: ORDER_DATE
+    data_type: date

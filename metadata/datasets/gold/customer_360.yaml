@@ -1,0 +1,25 @@
+dataset:
+  name: DW_GOLD.CUSTOMER_360
+  layer: gold
+  domain: customer
+  owner:
+    team: "Customer Success"
+    email: "cs@example.com"
+  classification:
+    pii: true
+    confidential: true
+  description: "Customer holistic view"
+primary_key:
+  - CUSTOMER_ID
+fields:
+  - name: CUSTOMER_ID
+    data_type: integer
+    description: "Primary Key"
+  - name: FULL_NAME
+    data_type: string
+  - name: TOTAL_SPEND
+    data_type: double
+  - name: LAST_ORDER_DATE
+    data_type: date
+  - name: SEGMENT
+    data_type: string

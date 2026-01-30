@@ -1,0 +1,30 @@
+dataset:
+  name: DW_SILVER.WEB_CLICKS
+  layer: silver
+  domain: digital
+  owner:
+    team: "Digital"
+    email: "digital@example.com"
+  classification:
+    pii: true
+    confidential: false
+  description: "Raw website clickstream data"
+primary_key:
+  - CLICK_ID
+fields:
+  - name: CLICK_ID
+    data_type: integer
+    description: "Primary key"
+    nullable: false
+  - name: SESSION_ID
+    data_type: string
+    description: "User session identifier"
+  - name: CUSTOMER_ID
+    data_type: integer
+    description: "Authenticated user ID"
+  - name: PAGE_URL
+    data_type: string
+    description: "Visited URL"
+  - name: TIMESTAMP
+    data_type: timestamp
+    description: "Event time"

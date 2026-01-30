@@ -1,0 +1,34 @@
+meta_version: "2.0"
+version: 1
+target: DW_GOLD.CUSTOMER_360
+validations:
+  - name: total_spend_check
+    description: "Validate total spend per customer matches source orders"
+    source_query: |
+      SELECT COALESCE(SUM(
+         QUANTITY * UNIT_PRICE * (1 - NVL(DISCOUNT_PCT, 0))
+      ), 0) AS value
+      FROM DW_SILVER.ORDERS o
+      JOIN DW_SILVER.PRODUCTS p ON o.PRODUCT_ID = p.PRODUCT_ID
+      LEFT JOIN DW_SILVER.DISCOUNTS d ON o.DISCOUNT_ID = d.DISCOUNT_ID
+      WHERE o.CUSTOMER_ID = :customer_id
+      AND o.ORDER_STATUS = 'COMPLETED'
+    target_query: |
+      SELECT TOTAL_SPEND AS value
+      FROM DW_GOLD.CUSTOMER_360
+      WHERE CUSTOMER_ID = :customer_id
+    parameters:
+      - name: customer_id
+        type: NUMBER
+        prompt: "Customer ID to validate"
+        default: 1
+    tolerance: 0.1
+    comparison: NUMERIC_MATCH
+
+  - name: customer_count_check
+    description: "Ensure customer count matches between Dim and 360"
+    source_query: |
+      SELECT COUNT(*) AS value FROM DW_SILVER.CUSTOMER_DIM
+    target_query: |
+      SELECT COUNT(*) AS value FROM DW_GOLD.CUSTOMER_360
+    comparison: EXACT_MATCH

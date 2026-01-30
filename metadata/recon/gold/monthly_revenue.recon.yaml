@@ -1,0 +1,44 @@
+meta_version: "2.0"
+version: 1
+target: DW_GOLD.MONTHLY_REVENUE
+validations:
+  - name: monthly_revenue_check
+    description: "Validate monthly revenue aggregation"
+    source_query: |
+      SELECT SUM(
+         QUANTITY * UNIT_PRICE * (1 - NVL(DISCOUNT_PCT, 0))
+      ) AS value
+      FROM DW_SILVER.ORDERS o
+      JOIN DW_SILVER.PRODUCTS p ON o.PRODUCT_ID = p.PRODUCT_ID
+      LEFT JOIN DW_SILVER.DISCOUNTS d ON o.DISCOUNT_ID = d.DISCOUNT_ID
+      WHERE strftime('%Y-%m', ORDER_DATE) = :month
+      AND o.ORDER_STATUS = 'COMPLETED'
+    target_query: |
+      SELECT REVENUE AS value
+      FROM DW_GOLD.MONTHLY_REVENUE
+      WHERE MONTH = :month
+    parameters:
+      - name: month
+        type: STRING
+        prompt: "Month (YYYY-MM)"
+        default: "2024-01"
+    tolerance: 1.0
+    comparison: NUMERIC_MATCH
+
+  - name: monthly_order_count
+    description: "Validate unique orders per month"
+    source_query: |
+      SELECT COUNT(DISTINCT ORDER_ID) AS value
+      FROM DW_SILVER.ORDERS
+      WHERE strftime('%Y-%m', ORDER_DATE) = :month
+      AND ORDER_STATUS = 'COMPLETED'
+    target_query: |
+      SELECT ORDER_COUNT AS value
+      FROM DW_GOLD.MONTHLY_REVENUE
+      WHERE MONTH = :month
+    parameters:
+      - name: month
+        type: STRING
+        prompt: "Month (YYYY-MM)"
+        default: "2024-01"
+    comparison: EXACT_MATCH

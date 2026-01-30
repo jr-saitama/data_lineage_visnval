@@ -1,0 +1,29 @@
+dataset:
+  name: SRC_SYSTEM.ORDERS_CSV
+  layer: source
+  domain: sales
+  description: "Original CSV file export from legacy system"
+  owner:
+    team: "IT Ops"
+    email: "ops@example.com"
+  classification:
+    confidential: true
+    pii: true
+
+primary_key:
+  - OID
+
+fields:
+  - name: OID
+    data_type: string
+    description: "Legacy Order ID"
+    nullable: false
+  - name: CID
+    data_type: string
+    description: "Legacy Customer ID"
+  - name: ODATE
+    data_type: string
+    description: "Order Date String"
+  - name: AMT
+    data_type: string
+    description: "Amount String"

@@ -1,0 +1,26 @@
+target: DW_BRONZE.ORDERS_RAW
+dataset_dependencies:
+  - SRC_SYSTEM.ORDERS_CSV
+field_lineage:
+  - field: ORDER_ID
+    type: COPIED_FROM
+    sources:
+      - dataset: SRC_SYSTEM.ORDERS_CSV
+        field: OID
+  - field: CUSTOMER_ID
+    type: COPIED_FROM
+    sources:
+      - dataset: SRC_SYSTEM.ORDERS_CSV
+        field: CID
+  - field: ORDER_DATE
+    type: DERIVED_FROM
+    sources:
+      - dataset: SRC_SYSTEM.ORDERS_CSV
+        field: ODATE
+    validation_query: |
+      SELECT CAST(ODATE AS DATE) FROM SRC_SYSTEM.ORDERS_CSV
+  - field: TOTAL_AMOUNT
+    type: DERIVED_FROM
+    sources:
+      - dataset: SRC_SYSTEM.ORDERS_CSV
+        field: AMT

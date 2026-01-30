@@ -1,0 +1,29 @@
+dataset:
+  name: DW_BRONZE.ORDERS_RAW
+  layer: bronze
+  domain: sales
+  description: "Raw orders data from source system"
+  owner:
+    team: "Data Engineering"
+    email: "files@example.com"
+  classification:
+    confidential: false
+    pii: false
+
+primary_key:
+  - ORDER_ID
+
+fields:
+  - name: ORDER_ID
+    data_type: integer
+    description: "Source order ID"
+    nullable: false
+  - name: CUSTOMER_ID
+    data_type: integer
+    description: "Customer identifier"
+  - name: ORDER_DATE
+    data_type: date
+    description: "Date of order"
+  - name: TOTAL_AMOUNT
+    data_type: decimal(10,2)
+    description: "Order total"

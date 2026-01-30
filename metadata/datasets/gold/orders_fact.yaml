@@ -1,0 +1,67 @@
+meta_version: "2.0"
+version: 1
+change_history:
+  - version: 1
+    date: "2026-01-29T00:00:00Z"
+    author: "system"
+    message: "Initial creation of orders_fact dataset"
+
+dataset:
+  name: "DW_GOLD.ORDERS_FACT"
+  layer: "gold"
+  domain: "sales"
+  type: "TABLE"
+  owner:
+    team: "finance_analytics"
+    email: "finance-analytics@company.com"
+  classification:
+    pii: false
+    confidential: true
+  description: >
+    Consolidated orders fact table with calculated revenue metrics
+    and product classification based on business rules
+
+primary_key:
+  - ORDER_ID
+
+fields:
+  - name: ORDER_ID
+    data_type: VARCHAR2(50)
+    nullable: false
+    description: "Unique order identifier"
+
+  - name: CUSTOMER_ID
+    data_type: VARCHAR2(50)
+    nullable: false
+    description: "Customer identifier"
+
+  - name: CUSTOMER_NAME
+    data_type: VARCHAR2(200)
+    nullable: true
+    description: "Customer full name from lookup"
+
+  - name: PRODUCT_ID
+    data_type: VARCHAR2(50)
+    nullable: false
+    description: "Product identifier"
+
+  - name: TOTAL_REVENUE
+    data_type: NUMBER(18,2)
+    nullable: true
+    adjustable: true
+    description: "Calculated total revenue after discounts"
+    sample_values: ["1250.50", "899.99", "15000.00"]
+
+  - name: PRODUCT_CLASSIFICATION
+    data_type: VARCHAR2(20)
+    nullable: true
+    adjustable: true
+    description: "Derived product classification based on business rules"
+    valid_values:
+      ["PREMIUM", "GROWTH", "CASH_COW", "UNDERPERFORMER", "STANDARD"]
+    sample_values: ["PREMIUM", "STANDARD"]
+
+  - name: ORDER_DATE
+    data_type: DATE
+    nullable: false
+    description: "Order placement date"

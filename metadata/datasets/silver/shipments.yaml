@@ -1,0 +1,27 @@
+dataset:
+  name: DW_SILVER.SHIPMENTS
+  layer: silver
+  domain: logistics
+  owner:
+    team: "Logistics"
+    email: "logistics@example.com"
+  classification:
+    pii: false
+    confidential: false
+  description: "Shipment records for orders"
+primary_key:
+  - SHIPMENT_ID
+fields:
+  - name: SHIPMENT_ID
+    data_type: integer
+    description: "Primary key"
+    nullable: false
+  - name: ORDER_ID
+    data_type: integer
+    description: "Foreign key to ORDERS"
+  - name: SHIPMENT_DATE
+    data_type: date
+    description: "Date of shipment"
+  - name: STATUS
+    data_type: string
+    description: "Delivery status"

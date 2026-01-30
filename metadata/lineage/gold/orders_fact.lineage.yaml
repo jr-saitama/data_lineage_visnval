@@ -1,0 +1,187 @@
+meta_version: "2.0"
+version: 2
+change_history:
+  - version: 1
+    date: "2026-01-29T00:00:00Z"
+    author: system
+    message: Initial lineage definition for orders_fact
+  - version: 2
+    date: "2026-01-29T20:02:14.877345"
+    author: user
+    message: This is a test submit
+target: DW_GOLD.ORDERS_FACT
+field_lineage:
+  - field: ORDER_ID
+    type: COPIED_FROM
+    sources:
+      - dataset: DW_SILVER.ORDERS
+        field: ORDER_ID
+    validation_query: |
+      WITH source_cte AS (
+        SELECT ORDER_ID AS expected_order_id
+        FROM DW_SILVER.ORDERS
+      )
+      SELECT t.ORDER_ID
+      FROM DW_GOLD.ORDERS_FACT t
+      WHERE NOT EXISTS (
+        SELECT 1 FROM source_cte s 
+        WHERE s.expected_order_id = t.ORDER_ID
+        AND 1 = 1
+      )
+  - field: CUSTOMER_NAME
+    type: LOOKED_UP_FROM
+    sources:
+      - dataset: DW_SILVER.CUSTOMER_DIM
+        field: FULL_NAME
+      - dataset: DW_SILVER.CUSTOMER_DIM
+        field: CUSTOMER_TYPE
+    parameters:
+      - name: cust_type
+        type: STRING
+        prompt: Customer type for uppercase formatting
+        default: VIP
+    validation_query: |
+      WITH source_cte AS (
+        SELECT 
+          c.CUSTOMER_ID,
+          CASE 
+            WHEN c.CUSTOMER_TYPE = :cust_type THEN UPPER(c.FULL_NAME)
+            ELSE c.FULL_NAME
+          END AS expected_customer_name
+        FROM DW_SILVER.CUSTOMER_DIM c
+      )
+      SELECT t.ORDER_ID, t.CUSTOMER_NAME, s.expected_customer_name
+      FROM DW_GOLD.ORDERS_FACT t
+      JOIN source_cte s ON s.CUSTOMER_ID = t.CUSTOMER_ID
+      WHERE COALESCE(t.CUSTOMER_NAME, '$#$') <> COALESCE(s.expected_customer_name, '$#$')
+  - field: TOTAL_REVENUE
+    type: CALCULATED_FROM
+    sources:
+      - dataset: DW_SILVER.ORDERS
+        field: QUANTITY
+      - dataset: DW_SILVER.ORDERS
+        field: ORDER_STATUS
+      - dataset: DW_SILVER.PRODUCTS
+        field: UNIT_PRICE
+      - dataset: DW_SILVER.DISCOUNTS
+        field: DISCOUNT_PCT
+    parameters:
+      - name: status_filter
+        type: STRING
+        prompt: Order status to include
+        default: COMPLETED
+    validation_query: |
+      WITH source_cte AS (
+        SELECT 
+          o.ORDER_ID,
+          SUM(
+            CASE 
+              WHEN o.ORDER_STATUS = :status_filter THEN 
+                o.QUANTITY * p.UNIT_PRICE * (1 - COALESCE(d.DISCOUNT_PCT, 0))
+              ELSE 0 
+            END
+          ) AS expected_total_revenue
+        FROM DW_SILVER.ORDERS o
+        JOIN DW_SILVER.PRODUCTS p ON o.PRODUCT_ID = p.PRODUCT_ID
+        LEFT JOIN DW_SILVER.DISCOUNTS d ON o.DISCOUNT_ID = d.DISCOUNT_ID
+        GROUP BY o.ORDER_ID
+      )
+      SELECT t.ORDER_ID, t.TOTAL_REVENUE, s.expected_total_revenue
+      FROM DW_GOLD.ORDERS_FACT t
+      JOIN source_cte s ON s.ORDER_ID = t.ORDER_ID
+      WHERE COALESCE(t.TOTAL_REVENUE, -999999) <> COALESCE(s.expected_total_revenue, -999999)
+  - field: PRODUCT_CLASSIFICATION
+    type: DERIVED_FROM
+    sources:
+      - dataset: DW_SILVER.PRODUCTS
+        field: PROFIT_MARGIN
+      - dataset: DW_SILVER.SALES_METRICS
+        field: UNITS_SOLD_YTD
+      - dataset: DW_SILVER.CATEGORY_DIM
+        field: IS_STRATEGIC
+      - dataset: DW_SILVER.RETURN_METRICS
+        field: RETURN_RATE
+      - dataset: DW_SILVER.SALES_TRENDS
+        field: SALES_TREND_PCT
+      - dataset: DW_SILVER.INVENTORY_METRICS
+        field: STOCK_TURNOVER
+      - dataset: DW_SILVER.INVENTORY_METRICS
+        field: DAYS_INVENTORY_OUTSTANDING
+    parameters:
+      - name: premium_margin_threshold
+        type: NUMBER
+        prompt: Minimum margin % for premium classification
+        default: 35
+      - name: volume_threshold
+        type: NUMBER
+        prompt: Minimum YTD units for high volume
+        default: 10000
+      - name: max_return_rate
+        type: NUMBER
+        prompt: Maximum acceptable return rate %
+        default: 5
+      - name: growth_trend_threshold
+        type: NUMBER
+        prompt: Minimum sales trend % for growth
+        default: 15
+      - name: min_margin
+        type: NUMBER
+        prompt: Minimum acceptable margin %
+        default: 10
+      - name: min_turnover
+        type: NUMBER
+        prompt: Minimum stock turnover rate
+        default: 4
+      - name: max_dio
+        type: NUMBER
+        prompt: Maximum days inventory outstanding
+        default: 90
+    validation_query: |
+      WITH source_cte AS (
+        SELECT 
+          p.PRODUCT_ID,
+          CASE
+            WHEN p.PROFIT_MARGIN >= :premium_margin_threshold
+                 AND sm.UNITS_SOLD_YTD >= :volume_threshold
+                 AND c.IS_STRATEGIC = 'Y'
+                 AND rm.RETURN_RATE < :max_return_rate
+            THEN 'PREMIUM'
+            
+            WHEN st.SALES_TREND_PCT >= :growth_trend_threshold
+                 AND p.PROFIT_MARGIN >= :min_margin
+                 AND im.STOCK_TURNOVER >= :min_turnover
+            THEN 'GROWTH'
+            
+            WHEN sm.UNITS_SOLD_YTD >= :volume_threshold
+                 AND st.SALES_TREND_PCT < :growth_trend_threshold
+                 AND p.PROFIT_MARGIN >= :min_margin
+            THEN 'CASH_COW'
+            
+            WHEN p.PROFIT_MARGIN < :min_margin
+                 OR rm.RETURN_RATE >= :max_return_rate
+                 OR im.DAYS_INVENTORY_OUTSTANDING > :max_dio
+            THEN 'UNDERPERFORMER'
+            
+            ELSE 'STANDARD'
+          END AS expected_classification
+        FROM DW_SILVER.PRODUCTS p
+        LEFT JOIN DW_SILVER.SALES_METRICS sm ON p.PRODUCT_ID = sm.PRODUCT_ID
+        LEFT JOIN DW_SILVER.CATEGORY_DIM c ON p.CATEGORY_ID = c.CATEGORY_ID
+        LEFT JOIN DW_SILVER.RETURN_METRICS rm ON p.PRODUCT_ID = rm.PRODUCT_ID
+        LEFT JOIN DW_SILVER.SALES_TRENDS st ON p.PRODUCT_ID = st.PRODUCT_ID
+        LEFT JOIN DW_SILVER.INVENTORY_METRICS im ON p.PRODUCT_ID = im.PRODUCT_ID
+      )
+      SELECT t.ORDER_ID, t.PRODUCT_ID, t.PRODUCT_CLASSIFICATION, s.expected_classification
+      FROM DW_GOLD.ORDERS_FACT t
+      JOIN source_cte s ON s.PRODUCT_ID = t.PRODUCT_ID
+      WHERE COALESCE(t.PRODUCT_CLASSIFICATION, '$#$') <> COALESCE(s.expected_classification, '$#$')
+dataset_dependencies:
+  - DW_SILVER.ORDERS
+  - DW_SILVER.CUSTOMER_DIM
+  - DW_SILVER.PRODUCTS
+  - DW_SILVER.DISCOUNTS
+  - DW_SILVER.SALES_METRICS
+  - DW_SILVER.CATEGORY_DIM
+  - DW_SILVER.RETURN_METRICS
+  - DW_SILVER.SALES_TRENDS
+  - DW_SILVER.INVENTORY_METRICS

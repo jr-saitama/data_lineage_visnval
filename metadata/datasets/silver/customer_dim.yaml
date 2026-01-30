@@ -1,0 +1,26 @@
+dataset:
+  name: DW_SILVER.CUSTOMER_DIM
+  layer: silver
+  domain: master_data
+  owner:
+    team: "Data Steward"
+    email: "data@example.com"
+  classification:
+    pii: true
+    confidential: true
+  description: "Customer dimension table"
+primary_key:
+  - CUSTOMER_ID
+fields:
+  - name: CUSTOMER_ID
+    data_type: integer
+    description: "Primary Key"
+    nullable: false
+  - name: FULL_NAME
+    data_type: string
+  - name: CUSTOMER_TYPE
+    data_type: string
+  - name: EMAIL
+    data_type: string
+  - name: CREATED_DATE
+    data_type: date

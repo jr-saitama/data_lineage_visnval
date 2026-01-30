@@ -1,0 +1,27 @@
+dataset:
+  name: DW_SILVER.PAYMENTS
+  layer: silver
+  domain: finance
+  owner:
+    team: "Finance"
+    email: "finance@example.com"
+  classification:
+    pii: true
+    confidential: true
+  description: "Payment transactions for orders"
+primary_key:
+  - PAYMENT_ID
+fields:
+  - name: PAYMENT_ID
+    data_type: integer
+    description: "Primary key"
+    nullable: false
+  - name: ORDER_ID
+    data_type: integer
+    description: "Foreign key to ORDERS"
+  - name: AMOUNT
+    data_type: double
+    description: "Payment amount"
+  - name: PAYMENT_METHOD
+    data_type: string
+    description: "Method (CC, PayPal, etc)"

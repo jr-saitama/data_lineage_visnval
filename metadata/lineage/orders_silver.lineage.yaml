@@ -1,0 +1,24 @@
+target: DW_SILVER.ORDERS
+dataset_dependencies:
+  - DW_BRONZE.ORDERS_RAW
+field_lineage:
+  - field: ORDER_ID
+    type: COPIED_FROM
+    sources:
+      - dataset: DW_BRONZE.ORDERS_RAW
+        field: ORDER_ID
+  - field: CUSTOMER_ID
+    type: COPIED_FROM
+    sources:
+      - dataset: DW_BRONZE.ORDERS_RAW
+        field: CUSTOMER_ID
+  - field: ORDER_DATE
+    type: COPIED_FROM
+    sources:
+      - dataset: DW_BRONZE.ORDERS_RAW
+        field: ORDER_DATE
+  - field: AMOUNT
+    type: COPIED_FROM
+    sources:
+      - dataset: DW_BRONZE.ORDERS_RAW
+        field: TOTAL_AMOUNT

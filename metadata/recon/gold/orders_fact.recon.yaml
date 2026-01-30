@@ -1,0 +1,75 @@
+meta_version: "2.0"
+version: 1
+change_history:
+  - version: 1
+    date: "2026-01-29T00:00:00Z"
+    author: "system"
+    message: "Initial reconciliation rules for orders_fact"
+
+target: DW_GOLD.ORDERS_FACT
+
+validations:
+  - name: revenue_sum_check
+    description: "Validate total revenue matches source calculation"
+    source_query: |
+      SELECT SUM(
+        CASE WHEN ORDER_STATUS = :status THEN 
+          QUANTITY * UNIT_PRICE * (1 - COALESCE(DISCOUNT_PCT, 0))
+        ELSE 0 END
+      ) AS value
+      FROM DW_SILVER.ORDERS o
+      JOIN DW_SILVER.PRODUCTS p ON o.PRODUCT_ID = p.PRODUCT_ID
+      LEFT JOIN DW_SILVER.DISCOUNTS d ON o.DISCOUNT_ID = d.DISCOUNT_ID
+      WHERE ORDER_DATE BETWEEN :start_date AND :end_date
+    target_query: |
+      SELECT SUM(TOTAL_REVENUE) AS value
+      FROM DW_GOLD.ORDERS_FACT
+      WHERE ORDER_DATE BETWEEN :start_date AND :end_date
+    parameters:
+      - name: status
+        type: STRING
+        prompt: "Order status filter"
+        default: "COMPLETED"
+      - name: start_date
+        type: DATE
+        prompt: "Start date for reconciliation"
+      - name: end_date
+        type: DATE
+        prompt: "End date for reconciliation"
+    tolerance: 0.01
+    comparison: NUMERIC_MATCH
+
+  - name: order_count_check
+    description: "Validate order counts between source and target"
+    source_query: |
+      SELECT COUNT(DISTINCT ORDER_ID) AS value 
+      FROM DW_SILVER.ORDERS 
+      WHERE ORDER_DATE BETWEEN :start_date AND :end_date
+    target_query: |
+      SELECT COUNT(*) AS value 
+      FROM DW_GOLD.ORDERS_FACT
+      WHERE ORDER_DATE BETWEEN :start_date AND :end_date
+    parameters:
+      - name: start_date
+        type: DATE
+        prompt: "Start date"
+      - name: end_date
+        type: DATE
+        prompt: "End date"
+    comparison: EXACT_MATCH
+
+  - name: customer_coverage_check
+    description: "Validate all customers from orders exist in target"
+    source_query: |
+      SELECT COUNT(DISTINCT CUSTOMER_ID) AS value 
+      FROM DW_SILVER.ORDERS 
+      WHERE ORDER_DATE >= :as_of_date
+    target_query: |
+      SELECT COUNT(DISTINCT CUSTOMER_ID) AS value 
+      FROM DW_GOLD.ORDERS_FACT
+      WHERE ORDER_DATE >= :as_of_date
+    parameters:
+      - name: as_of_date
+        type: DATE
+        prompt: "Orders as of date"
+    comparison: EXACT_MATCH

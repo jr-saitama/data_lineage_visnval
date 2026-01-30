@@ -1,0 +1,47 @@
+meta_version: "2.0"
+version: 1
+target: DW_GOLD.CUSTOMER_360
+dataset_dependencies:
+  - DW_SILVER.CUSTOMER_DIM
+  - DW_SILVER.ORDERS
+  - DW_GOLD.ORDERS_FACT
+field_lineage:
+  - field: CUSTOMER_ID
+    type: COPIED_FROM
+    sources:
+      - dataset: DW_SILVER.CUSTOMER_DIM
+        field: CUSTOMER_ID
+  - field: FULL_NAME
+    type: COPIED_FROM
+    sources:
+      - dataset: DW_SILVER.CUSTOMER_DIM
+        field: FULL_NAME
+  - field: TOTAL_SPEND
+    type: CALCULATED_FROM
+    sources:
+      - dataset: DW_GOLD.ORDERS_FACT
+        field: TOTAL_REVENUE
+      - dataset: DW_SILVER.ORDERS
+        field: ORDER_ID
+    validation_query: |
+      SELECT t.CUSTOMER_ID, t.TOTAL_SPEND, s.calc_spend
+      FROM DW_GOLD.CUSTOMER_360 t
+      JOIN (
+        SELECT CUSTOMER_ID, SUM(TOTAL_REVENUE) as calc_spend
+        FROM DW_GOLD.ORDERS_FACT
+        GROUP BY CUSTOMER_ID
+      ) s ON t.CUSTOMER_ID = s.CUSTOMER_ID
+      WHERE ABS(t.TOTAL_SPEND - s.calc_spend) > 0.1
+  - field: LAST_ORDER_DATE
+    type: DERIVED_FROM
+    sources:
+      - dataset: DW_SILVER.ORDERS
+        field: ORDER_DATE
+  - field: SEGMENT
+    type: DERIVED_FROM
+    sources:
+      - dataset: DW_SILVER.CUSTOMER_DIM
+        field: CUSTOMER_TYPE
+      - dataset: DW_GOLD.ORDERS_FACT
+        field: TOTAL_REVENUE
+    description: "Segmentation based on spend and type"

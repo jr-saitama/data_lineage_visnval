@@ -1,0 +1,21 @@
+dataset:
+  name: DW_GOLD.MONTHLY_REVENUE
+  layer: gold
+  domain: finance
+  owner:
+    team: "Finance"
+    email: "finance@example.com"
+  classification:
+    pii: false
+    confidential: true
+  description: "Monthly revenue aggregates"
+primary_key:
+  - MONTH
+fields:
+  - name: MONTH
+    data_type: string
+    description: "YYYY-MM"
+  - name: REVENUE
+    data_type: double
+  - name: ORDER_COUNT
+    data_type: integer

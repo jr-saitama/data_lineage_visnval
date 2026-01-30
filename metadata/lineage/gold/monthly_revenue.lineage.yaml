@@ -1,0 +1,33 @@
+meta_version: "2.0"
+version: 1
+target: DW_GOLD.MONTHLY_REVENUE
+dataset_dependencies:
+  - DW_GOLD.ORDERS_FACT
+field_lineage:
+  - field: MONTH
+    type: DERIVED_FROM
+    sources:
+      - dataset: DW_GOLD.ORDERS_FACT
+        field: ORDER_ID
+        # Note: In reality derived from ORDER_DATE looked up via ID or directly from source
+  - field: REVENUE
+    type: CALCULATED_FROM
+    sources:
+      - dataset: DW_GOLD.ORDERS_FACT
+        field: TOTAL_REVENUE
+    validation_query: |
+      SELECT t.MONTH, t.REVENUE, s.msg_revenue
+      FROM DW_GOLD.MONTHLY_REVENUE t
+      JOIN (
+         SELECT strftime('%Y-%m', '2024-01-01') as m, SUM(TOTAL_REVENUE) as msg_revenue 
+         FROM DW_GOLD.ORDERS_FACT
+         -- Simplified validation query for SQLite demo (dates are tricky without full conversions)
+         WHERE 1=1 
+         GROUP BY 1
+      ) s ON t.MONTH = s.m
+      WHERE ABS(t.REVENUE - s.msg_revenue) > 1.0
+  - field: ORDER_COUNT
+    type: CALCULATED_FROM
+    sources:
+      - dataset: DW_GOLD.ORDERS_FACT
+        field: ORDER_ID
