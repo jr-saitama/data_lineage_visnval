@@ -8,7 +8,7 @@ field_lineage:
     type: DERIVED_FROM
     sources:
       - dataset: DW_GOLD.ORDERS_FACT
-        field: ORDER_ID
+        field: TOTAL_REVENUE
         # Note: In reality derived from ORDER_DATE looked up via ID or directly from source
   - field: REVENUE
     type: CALCULATED_FROM

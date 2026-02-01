@@ -36,7 +36,7 @@ class FieldDefinition(BaseModel):
     """Field/column metadata in a dataset."""
     name: str
     data_type: str
-    nullable: bool = True
+    nullable: bool = False
     adjustable: bool = False
     description: Optional[str] = None
     sample_values: Optional[list[str]] = None
@@ -48,7 +48,7 @@ class DatasetInfo(BaseModel):
     name: str
     layer: str
     domain: str
-    type: Literal["TABLE", "VIEW", "MATERIALIZED_VIEW"] = "TABLE"
+    type: Literal["TABLE", "VIEW", "MATERIALIZED_VIEW", "FUNCTION_OUTPUT"] = "TABLE"
     owner: OwnerInfo
     classification: ClassificationInfo
     description: Optional[str] = None
@@ -60,7 +60,7 @@ class DatasetContract(BaseModel):
     version: int = 1
     change_history: list[ChangeHistoryEntry] = Field(default_factory=list)
     dataset: DatasetInfo
-    primary_key: list[str]
+    primary_key: list[str] = Field(default_factory=list)
     fields: list[FieldDefinition]
 
 

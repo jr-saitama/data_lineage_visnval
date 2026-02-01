@@ -1,18 +1,55 @@
 :root {
+  /* Enterprise Theme Palette - Deep Blue/Black */
   --primary: #6366f1;
+  /* Indigo 500 */
   --primary-light: #818cf8;
-  --secondary: #8b5cf6;
+  /* Indigo 400 */
+  --primary-dark: #4f46e5;
+  /* Indigo 600 */
+
+  --secondary: #ec4899;
+  /* Pink 500 */
   --accent: #0ea5e9;
+  /* Sky 500 */
+
   --success: #10b981;
+  /* Emerald 500 */
   --danger: #ef4444;
+  /* Red 500 */
   --warning: #f59e0b;
-  --background: #0f172a;
-  --background-light: #1e293b;
+  /* Amber 500 */
+
+  /* Backgrounds */
+  --background: #0B1121;
+  /* Very dark blue/black */
+  --background-light: #151e32;
+  /* Slightly lighter for panels */
   --surface: #1e293b;
+  /* Slate 800 - Cards/Panels */
   --surface-hover: #334155;
-  --text: #f1f5f9;
+  /* Slate 700 */
+  --surface-active: #475569;
+  /* Slate 600 */
+
+  /* Text */
+  --text: #f8fafc;
+  /* Slate 50 */
+  --text-secondary: #cbd5e1;
+  /* Slate 300 */
   --text-muted: #94a3b8;
+  /* Slate 400 */
+
+  /* Borders */
   --border: #334155;
+  /* Slate 700 */
+  --border-light: #475569;
+  /* Slate 600 */
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
 * {
@@ -42,22 +79,30 @@ body {
 }
 
 /* Header */
+/* Header */
 .header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
-  background: var(--surface);
+  padding: 12px 24px;
+  background: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   gap: 16px;
+  z-index: 50;
 }
 
 .header h1 {
   font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--primary-light);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
   white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .controls {
@@ -73,20 +118,32 @@ body {
 }
 
 .search-input {
-  padding: 8px 14px;
-  background: var(--background);
+  padding: 8px 12px 8px 36px;
+  /* Space for icon */
+  background: var(--background-light);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   color: var(--text);
   font-size: 13px;
-  width: 220px;
+  width: 260px;
   transition: all 0.2s ease;
+  height: 36px;
 }
 
 .search-input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  background: var(--surface);
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.search-icon-wrapper {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
 }
 
 .search-dropdown {
@@ -97,12 +154,12 @@ body {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  margin-top: 4px;
-  max-height: 300px;
+  margin-top: 6px;
+  max-height: 320px;
   overflow-y: auto;
   overflow-x: hidden;
   z-index: 1000;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-xl);
 }
 
 .search-result {
@@ -139,9 +196,10 @@ body {
 }
 
 .result-dataset {
-  font-size: 11px;
+  font-size: 10px;
+  font-weight: 600;
   color: var(--text-muted);
-  background: var(--background);
+  background: rgba(255, 255, 255, 0.05);
   padding: 2px 6px;
   border-radius: 4px;
   flex-shrink: 0;
@@ -149,6 +207,7 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Level Toggle */
@@ -202,31 +261,43 @@ body {
 }
 
 /* Action Buttons */
+/* Action Buttons */
 .action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 16px;
-  background: var(--surface-hover);
+  background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
+  border-radius: 6px;
+  color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: var(--shadow-sm);
+  height: 36px;
 }
 
 .action-btn:hover:not(:disabled) {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--border-light);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 .action-btn.active {
-  background: var(--primary);
+  background: rgba(99, 102, 241, 0.15);
   border-color: var(--primary);
+  color: var(--primary-light);
 }
 
 .action-btn:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 /* Error */
@@ -251,6 +322,75 @@ body {
   flex: 1;
   height: 100%;
   background: var(--background);
+}
+
+/* Custom Group Drag Handle */
+.group-drag-handle {
+  position: absolute;
+  top: -32px;
+  /* Pull it slightly higher for better clearance */
+  left: 10px;
+  height: 32px;
+  min-width: 90px;
+  padding: 0 14px;
+  background: #334155;
+  /* Slate 700 - solid and distinct */
+  border: 2px solid #64748b;
+  /* Slate 500 - thicker border for visibility */
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 9999;
+  pointer-events: all !important;
+  box-shadow: 0 -4px 10px rgba(0, 0, 0, 0.3);
+}
+
+.group-drag-handle:hover {
+  background: #475569;
+  border-color: #94a3b8;
+  height: 34px;
+  top: -34px;
+}
+
+.group-drag-handle:active {
+  cursor: grabbing;
+  background: #1e293b;
+}
+
+.group-drag-handle::before {
+  content: "⋮⋮";
+  color: #94a3b8;
+  font-size: 16px;
+  margin-right: 8px;
+  font-family: monospace;
+}
+
+.group-drag-handle::after {
+  content: "DRAG";
+  color: #f8fafc;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+/* Ensure handles don't bunch at corners */
+.react-flow__handle {
+  width: 10px !important;
+  height: 10px !important;
+  background: #94a3b8 !important;
+  border: 2px solid #1e293b !important;
+}
+
+.react-flow__handle-left {
+  left: -5px !important;
+}
+
+.react-flow__handle-right {
+  right: -5px !important;
 }
 
 /* Legend */
@@ -330,6 +470,75 @@ body {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+/* Context Menu */
+.context-menu {
+  position: fixed;
+  background: rgba(30, 41, 59, 0.98);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-width: 180px;
+  max-width: 280px;
+  z-index: 2000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  animation: context-menu-fade 0.15s ease;
+}
+
+@keyframes context-menu-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu .menu-header {
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.context-menu .menu-items {
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.context-menu .menu-items button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+}
+
+.context-menu .menu-items button:hover {
+  background: var(--primary);
+  color: white;
 }
 
 .tooltip-header-full {
@@ -617,7 +826,7 @@ body {
 }
 
 .close-btn:hover {
-  background: var(--surface-hover);
+  background: rgba(255, 255, 255, 0.1);
   color: var(--text);
 }
 

@@ -16,10 +16,26 @@ from src.database import get_kuzu_connection, get_duckdb_connection, init_kuzu_s
 from src.models import DatasetContract, LineageContract, ReconContract
 
 
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Startup: Triggering metadata ingestion...")
+    try:
+        from src.ingest import ingest_all_contracts
+        # Run ingestion
+        ingest_all_contracts(metadata_path=str(METADATA_PATH), db_path=KUZU_PATH)
+        print("Startup: Ingestion complete.")
+    except Exception as e:
+        print(f"Startup warning: Ingestion failed: {e}")
+        traceback.print_exc()
+    yield
+
 app = FastAPI(
     title="Data Lineage API",
     description="API for Data Lineage & Reconciliation System",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -296,14 +312,73 @@ def get_lineage(dataset_id: str, level: str = "field"):
         y_spacing = 80
         
         for i, dep in enumerate(dependencies):
+            # Resolve short names (e.g. "ORDERS") to full IDs (e.g. "DW_SILVER.ORDERS")
+            if "." not in dep:
+                # 1. Try to find a matching dataset in the graph
+                candidates = conn.execute(
+                    "MATCH (d:Dataset) WHERE d.name = $name OR d.id ENDS WITH '.' + $name RETURN d.id LIMIT 1",
+                    {"name": dep}
+                )
+                if candidates.has_next():
+                    dep = candidates.get_next()[0]
+                else:
+                    # 2. Fallback: Search in metadata files
+                    # We don't know the layer, so check all layers
+                    try:
+                        found_path = None
+                        found_layer = None
+                        
+                        # Iterate over layer directories in ./metadata/datasets
+                        datasets_dir = METADATA_PATH / "datasets"
+                        if datasets_dir.exists():
+                           for layer_dir in datasets_dir.iterdir():
+                               if layer_dir.is_dir():
+                                   possible_file = layer_dir / f"{dep.lower()}.yaml"
+                                   if possible_file.exists():
+                                       found_path = possible_file
+                                       found_layer = layer_dir.name
+                                       break
+                        
+                        if found_path:
+                            with open(found_path, 'r', encoding='utf-8') as f:
+                                c = yaml.safe_load(f)
+                                full_name = c.get("dataset", {}).get("name")
+                                if full_name:
+                                    dep = full_name
+                    except Exception as e:
+                        print(f"Error resolving dependency {dep}: {e}")
+            
+            
             dep_name = dep.split(".")[-1] if "." in dep else dep
+            
+            # Load metadata for source dataset
+            src_meta = {}
+            src_pk = None
+            try:
+                parts = dep.split(".")
+                if len(parts) >= 2:
+                    l = parts[0].replace("DW_", "").lower()
+                    n = parts[-1].lower()
+                    p = METADATA_PATH / "datasets" / l / f"{n}.yaml"
+                    if p.exists():
+                        with open(p, 'r', encoding='utf-8') as f:
+                            c = yaml.safe_load(f)
+                            src_meta = c.get("dataset", {})
+                            src_pk = c.get("primary_key")
+            except Exception:
+                pass
+
             nodes.append({
                 "id": dep,
                 "type": "source_dataset",
                 "data": {
-                    "label": dep_name,
+                    "label": dep, # Show full ID (e.g. DW_SILVER.ORDERS)
                     "fullName": dep,
-                    "layer": dep.split(".")[0] if "." in dep else "UNKNOWN"
+                    "layer": dep.split(".")[0] if "." in dep else "UNKNOWN",
+                    "description": src_meta.get("description"),
+                    "domain": src_meta.get("domain"),
+                    "owner": src_meta.get("owner"),
+                    "primary_keys": src_pk
                 },
                 "position": {"x": 100, "y": y_pos + (i * y_spacing)}
             })
@@ -457,7 +532,7 @@ def get_lineage(dataset_id: str, level: str = "field"):
                 "id": f"ds-{dataset_name}",
                 "type": "source_dataset",
                 "data": {
-                    "label": ds_short,
+                    "label": dataset_name,
                     "fullName": dataset_name,
                     "isHeader": True,
                     "description": src_meta.get("description"),
@@ -654,7 +729,7 @@ def get_field_upstream_lineage(field_id: str):
                 "id": f"ds-{ds_name}",
                 "type": "source_dataset",
                 "data": {
-                    "label": ds_short,
+                    "label": ds_name,
                     "fullName": ds_name,
                     "isHeader": True,
                     "description": ds_meta.get("description"),
@@ -1309,6 +1384,236 @@ def get_contract_changes(limit: int = 100):
         return {"changes": result}
     except Exception as e:
         return {"changes": [], "error": str(e)}
+
+
+@app.get("/lineage/downstream/{id}")
+def get_downstream_lineage(id: str, level: str = "dataset"):
+    """Get downstream lineage (Blast Radius) for a dataset or field."""
+    conn = get_kuzu_connection(KUZU_PATH)
+    nodes = []
+    edges = []
+    debug_msg = ""
+    
+    # decode ID if needed (sometimes frontend sends URL encoded)
+    from urllib.parse import unquote
+    node_id = unquote(id)
+    
+    if level == "dataset":
+        # Find datasets that depend on this one
+        # (this) <-[DEPENDS_ON]- (downstream)
+        # Note: Direction is inverted compared to upstream
+        # Find datasets that depend on this one RECURSIVELY
+        # (this) <-[DEPENDS_ON*]- (downstream)
+        # Using variable length path
+        result = conn.execute(
+            """
+            MATCH (d:Dataset {id: $id})<-[:DEPENDS_ON*]-(downstream:Dataset)
+            RETURN DISTINCT downstream.id, downstream.name, downstream.layer, downstream.domain
+            """,
+            {"id": node_id}
+        )
+        
+        downstream_ids = []
+        # Add the start node to the set of IDs to check for edges, but don't add it to nodes list if it's the start
+        all_related_ids = {node_id}
+        
+        while result.has_next():
+            row = result.get_next()
+            ds_id = row[0]
+            ds_name = row[1]
+            ds_layer = row[2]
+            ds_domain = row[3]
+            
+            if ds_id == node_id:
+                continue
+                
+            downstream_ids.append(ds_id)
+            all_related_ids.add(ds_id)
+            
+            # Fetch metadata for downstream dataset
+            meta = {}
+            pk = None
+            try:
+                parts = ds_id.split(".")
+                if len(parts) >= 2:
+                    l = parts[0].replace("DW_", "").lower()
+                    n = parts[-1].lower()
+                    p = METADATA_PATH / "datasets" / l / f"{n}.yaml"
+                    if p.exists():
+                        with open(p, 'r', encoding='utf-8') as f:
+                            c = yaml.safe_load(f)
+                            meta = c.get("dataset", {})
+                            pk = c.get("primary_key")
+            except Exception:
+                pass
+
+            nodes.append({
+                "id": ds_id,
+                "type": "source_dataset", # Reusing source_dataset style
+                "data": {
+                    "label": ds_name,
+                    "fullName": ds_id,
+                    "layer": ds_layer,
+                    "domain": ds_domain,
+                    "description": meta.get("description"),
+                    "owner": meta.get("owner"),
+                    "primary_keys": pk,
+                    "originalType": "downstream_dataset"
+                },
+                "position": {"x": 0, "y": 0}
+            })
+            
+        # 3. Add Edges - Query edges between all relevant nodes
+        if len(all_related_ids) > 1:
+            ids_list = list(all_related_ids)
+            # Create WHERE clause for ID inclusion
+            # formatting strings for query safety in Kuzu
+            ids_str = ", ".join([f"'{x}'" for x in ids_list])
+            
+            edge_query = f"""
+                MATCH (a:Dataset)-[r:DEPENDS_ON]->(b:Dataset)
+                WHERE a.id IN [{ids_str}] AND b.id IN [{ids_str}]
+                RETURN a.id, b.id
+            """
+            
+            try:
+                edge_res = conn.execute(edge_query)
+                seen_edges = set()
+                while edge_res.has_next():
+                    erow = edge_res.get_next()
+                    src = erow[0]
+                    dst = erow[1]
+                    
+                    # We only care about edges in our sub-graph
+                    if src not in all_related_ids or dst not in all_related_ids:
+                        continue
+                        
+                    edge_key = f"{src}->{dst}"
+                    if edge_key not in seen_edges:
+                        edges.append({
+                            "id": f"e-{dst}-{src}", # Inverted ID
+                            "source": dst, # Swapped: Provider (dst) -> Consumer (src)
+                            "target": src, # Swapped: Consumer (src)
+                            "type": "depends_on",
+                            "label": "DEPENDS ON", # Added label
+                            "animated": True
+                        })
+                        seen_edges.add(edge_key)
+            except Exception as e:
+                print(f"Error fetching edges: {e}")
+            
+    else:
+        # Field level downstream
+        try:
+             # Find downstream fields recursively AND their parent datasets
+             # Using * for variable length path to find all downstream
+             query = """
+                MATCH (f:Field {id: $id})<-[r*]-(downstream:Field)<-[:CONTAINS]-(d:Dataset)
+                RETURN downstream.id, downstream.name, downstream.data_type, d.id, d.name, d.layer, d.domain
+             """
+             result = conn.execute(query, {"id": node_id})
+             
+             # Track unique nodes to prevent duplicates
+             added_node_ids = set()
+             
+             while result.has_next():
+                row = result.get_next()
+                f_id = row[0]
+                f_name = row[1]
+                f_dtype = row[2]
+                ds_id = row[3]
+                ds_name = row[4]
+                ds_layer = row[5]
+                ds_domain = row[6]
+                
+                # 1. Add Dataset Node (target_dataset) if not present
+                if ds_id not in added_node_ids:
+                    nodes.append({
+                        "id": ds_id,
+                        "type": "target_dataset",
+                        "data": {
+                            "label": ds_name,
+                            "layer": ds_layer,
+                            "domain": ds_domain,
+                            "fullName": ds_id,
+                            "originalType": "target_dataset"
+                        },
+                        "position": {"x": 0, "y": 0}
+                    })
+                    added_node_ids.add(ds_id)
+
+                # 2. Add Field Node (target_field)
+                if f_id not in added_node_ids:
+                    nodes.append({
+                        "id": f_id,
+                        "type": "target_field",
+                        "data": {
+                            "label": f_name,
+                            "column": 0,
+                            "dataset": ds_id,
+                            "data_type": f_dtype,
+                            "originalType": "target_field"
+                        },
+                        "position": {"x": 0, "y": 0}
+                    })
+                    added_node_ids.add(f_id)
+                
+             # 3. Add Edges - Requery for edges between all found nodes
+             if len(added_node_ids) > 1:
+                ids_list = list(added_node_ids)
+                all_relevant_ids = ids_list + [node_id]
+                rel_ids_str = ", ".join([f"'{x}'" for x in all_relevant_ids])
+                
+                edge_query = f"""
+                    MATCH (a:Field)-[r]->(b:Field)
+                    WHERE a.id IN [{rel_ids_str}] AND b.id IN [{rel_ids_str}]
+                    RETURN a.id, b.id, label(r)
+                """
+                edge_res = conn.execute(edge_query)
+                seen_edges = set()
+                while edge_res.has_next():
+                    erow = edge_res.get_next()
+                    src = erow[0]
+                    dst = erow[1]
+                    lbl = erow[2]
+                    edge_key = f"{src}->{dst}"
+                    if edge_key not in seen_edges:
+                        edges.append({
+                            "id": f"e-{dst}-{src}", # ID also updated to reflect direction
+                            "source": dst, # Upstream (provider)
+                            "target": src, # Downstream (consumer)
+                            "type": lbl.lower(),
+                            "label": lbl.replace("_", " "),
+                            "animated": True
+                        })
+                        seen_edges.add(edge_key)
+            
+             debug_msg = f"Found {len(nodes)} downstream nodes (recursive)."
+
+             
+             # DEBUG: Check if we found anything
+             debug_msg = f"Checked {node_id} (Level: {level}). Found {len(nodes)} nodes."
+             if len(nodes) == 0:
+                 # Try to see if node exists
+                 check = conn.execute("MATCH (n {id: $id}) RETURN n.id, labels(n)", {"id": node_id})
+                 if check.has_next():
+                     debug_msg += f" Node exists: {check.get_next()}."
+                     # Check any incoming relationships
+                     rels = conn.execute("MATCH (n {id: $id})<-[r]-(m) RETURN label(r), m.id LIMIT 5", {"id": node_id})
+                     rels_found = []
+                     while rels.has_next():
+                         rels_found.append(str(rels.get_next()))
+                     debug_msg += f" Incoming Rels: {rels_found}"
+                 else:
+                     debug_msg += " Node does NOT exist."
+
+
+
+        except Exception as e:
+            print(f"Error fetching field downstream: {e}")
+            return {"nodes": [], "edges": [], "error": str(e)}
+
+    return {"nodes": nodes, "edges": edges, "debug": debug_msg}
 
 
 # =============================================================================

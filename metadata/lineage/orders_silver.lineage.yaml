@@ -17,8 +17,3 @@ field_lineage:
     sources:
       - dataset: DW_BRONZE.ORDERS_RAW
         field: ORDER_DATE
-  - field: AMOUNT
-    type: COPIED_FROM
-    sources:
-      - dataset: DW_BRONZE.ORDERS_RAW
-        field: TOTAL_AMOUNT

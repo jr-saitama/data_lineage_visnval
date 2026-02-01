@@ -74,18 +74,7 @@ def ingest_dataset(conn, data: dict[str, Any]) -> None:
                 "adjustable": field.adjustable
             })
         
-        # Create CONTAINS relationship (idempotent logic usually needed, but minimal check here)
-        # Using MERGE would be better if supported, but Kuzu might not support MERGE fully or we stick to CREATE after check
-        # Checking relationship existence is expensive, we assume hierarchy is static-ish or okay to duplicates? 
-        # Actually Kuzu doesn't support generic MERGE on rels effectively in all versions. 
-        # But let's check if rel exists or just delete old?
-        # For simplicity and perf, we delete old CONTAINS for this field? No.
-        # Let's just create. Kuzu allows multi-edges. duplicates are possible. 
-        # Ideally we check:
-        # MATCH (d)-[r:CONTAINS]->(f) ...
-        # But previous code didn't check either. It just ran CREATE. We'll stick to that but maybe check existing?
-        # Let's check if connected to avoid duplication.
-        
+        # Check if connected to avoid duplication.
         rel_exists = conn.execute(
             "MATCH (d:Dataset {id: $did})-[:CONTAINS]->(f:Field {id: $fid}) RETURN d.id",
             {"did": dataset_id, "fid": field_id}
@@ -170,11 +159,6 @@ def ingest_lineage(conn, data: dict[str, Any]) -> None:
             # Create relationship based on type
             rel_type = lineage.type
             
-            # Check for existing relationship of same type to avoid duplicates
-            # (Simplification: we allow only one edge of specific type between these two nodes? 
-            #  Or just blindly create as before? Previous code blindly created.)
-            # Better to check.
-            
             # Note: Cannot parameterize rel type in MATCH either.
             rel_check_query = f"MATCH (t:Field {{id: $tid}})-[r:{rel_type}]->(s:Field {{id: $sid}}) RETURN r"
             rel_exists = conn.execute(rel_check_query, {"tid": target_field_id, "sid": source_field_id}).has_next()
@@ -216,7 +200,7 @@ def ingest_all_contracts(metadata_path: str = "./metadata", db_path: str = "./ku
         stats["lineage"] += 1
         print(f"✓ Ingested lineage: {yaml_file.name}")
     
-    # Recon contracts are stored for runtime, not ingested into graph
+    # Recon contracts are stored for runtime, not ingested into graph.
     for yaml_file in metadata.glob("recon/**/*.recon.yaml"):
         stats["recon"] += 1
         print(f"✓ Found recon: {yaml_file.name}")
@@ -262,7 +246,7 @@ def main():
         print(f"Recon:    {stats['recon']}")
     except Exception as e:
         print(f"Error during ingestion: {e}")
-        # Traceback
+        # Traceback for debugging
         import traceback
         traceback.print_exc()
 
